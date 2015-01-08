@@ -17,6 +17,9 @@ MainWindow::MainWindow(QWidget *parent) :
 
     // Message for AutoRun notifications
     queryCancelAutoPlay = RegisterWindowMessage(L"QueryCancelAutoPlay");
+
+    // Keep this window on top
+    setWindowFlags(Qt::WindowStaysOnTopHint);
 }
 
 MainWindow::~MainWindow()
