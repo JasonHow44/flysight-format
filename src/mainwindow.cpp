@@ -2,13 +2,15 @@
 #include <dbt.h>
 
 #include <QMessageBox>
+#include <QProcess>
 
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
-    ui(new Ui::MainWindow)
+    ui(new Ui::MainWindow),
+    copyThreads(0)
 {
     // Initialize UI object
     ui->setupUi(this);
@@ -83,14 +85,44 @@ bool MainWindow::nativeEvent(
     return false;
 }
 
+void MainWindow::onFormatStarted()
+{
+    // Increment thread counter
+    if (copyThreads++ == 0)
+    {
+        ui->statusBar->showMessage("Formatting disk...");
+    }
+}
+
+void MainWindow::onFormatFinished()
+{
+    // Decrement thread counter
+    if (--copyThreads == 0)
+    {
+        ui->statusBar->clearMessage();
+    }
+}
+
 void MainWindow::handleDeviceInsert(
         int driveNum)
 {
-    QMessageBox::information(this, tr("Message"), tr("handleDeviceInsert"));
+    // Convert drive number to letter
+    QString rootPath = QString("%1:")
+            .arg(QString("ABCDEFGHIJKLMNOPQRSTUVWXYZ").at(driveNum));
+
+    // Create new process
+    QProcess *process = new QProcess;
+
+    // Connect start/end signals
+    connect(process, SIGNAL(started()), this, SLOT(onFormatStarted()));
+    connect(process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(onFormatFinished()));
+
+    // Start formatting
+    process->start(QString("cmd /c format %1 /q /y").arg(rootPath));
 }
 
 void MainWindow::handleDeviceRemove(
         int driveNum)
 {
-    QMessageBox::information(this, tr("Message"), tr("handleDeviceRemove"));
+
 }

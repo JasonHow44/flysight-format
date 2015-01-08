@@ -24,10 +24,15 @@ protected:
 private:
     Ui::MainWindow *ui;
 
+    int  copyThreads;
     UINT queryCancelAutoPlay;
 
     void handleDeviceInsert(int driveNum);
     void handleDeviceRemove(int driveNum);
+
+private slots:
+    void onFormatStarted();
+    void onFormatFinished();
 };
 
 #endif // MAINWINDOW_H
