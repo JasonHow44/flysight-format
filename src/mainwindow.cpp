@@ -95,7 +95,9 @@ void MainWindow::onFormatStarted()
     // Increment thread counter
     if (copyThreads++ == 0)
     {
-        ui->statusBar->showMessage("Formatting disk...");
+        ui->statusBar->showMessage(tr("Formatting %1 disk%2...")
+                                   .arg(copyThreads)
+                                   .arg(copyThreads > 1 ? "s" : ""));
     }
 }
 
@@ -105,6 +107,12 @@ void MainWindow::onFormatFinished()
     if (--copyThreads == 0)
     {
         ui->statusBar->clearMessage();
+    }
+    else
+    {
+        ui->statusBar->showMessage(tr("Formatting %1 disk%2...")
+                                   .arg(copyThreads)
+                                   .arg(copyThreads > 1 ? "s" : ""));
     }
 }
 
