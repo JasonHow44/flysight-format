@@ -1,8 +1,10 @@
 #include <windows.h>
 #include <dbt.h>
 
+#include <QFile>
 #include <QMessageBox>
 #include <QProcess>
+#include <QTextStream>
 
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
@@ -106,6 +108,23 @@ void MainWindow::onFormatFinished()
     }
 }
 
+bool MainWindow::isConfigFile(QString path)
+{
+    // Open the file if it exists
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) return false;
+
+    // Create text stream
+    QTextStream in(&file);
+
+    // Read a line from the file
+    QString line = in.readLine();
+
+    // Compare it with reference text
+    QString version = "; Firmware version";
+    return line.left(version.length()) == version;
+}
+
 void MainWindow::handleDeviceInsert(
         int driveNum)
 {
@@ -113,15 +132,22 @@ void MainWindow::handleDeviceInsert(
     QString rootPath = QString("%1:")
             .arg(QString("ABCDEFGHIJKLMNOPQRSTUVWXYZ").at(driveNum));
 
-    // Create new process
-    QProcess *process = new QProcess;
+    // Get configuration file name
+    QString configPath(rootPath + QString("CONFIG.TXT"));
 
-    // Connect start/end signals
-    connect(process, SIGNAL(started()), this, SLOT(onFormatStarted()));
-    connect(process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(onFormatFinished()));
+    // If the configuration file exists
+    if (isConfigFile(configPath))
+    {
+        // Create new process
+        QProcess *process = new QProcess;
 
-    // Start formatting
-    process->start(QString("cmd /c format %1 /q /y").arg(rootPath));
+        // Connect start/end signals
+        connect(process, SIGNAL(started()), this, SLOT(onFormatStarted()));
+        connect(process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(onFormatFinished()));
+
+        // Start formatting
+        process->start(QString("cmd /c format %1 /q /y").arg(rootPath));
+    }
 }
 
 void MainWindow::handleDeviceRemove(

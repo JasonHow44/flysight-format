@@ -27,6 +27,8 @@ private:
     int  copyThreads;
     UINT queryCancelAutoPlay;
 
+    bool isConfigFile(QString path);
+
     void handleDeviceInsert(int driveNum);
     void handleDeviceRemove(int driveNum);
 
