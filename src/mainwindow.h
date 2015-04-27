@@ -32,7 +32,11 @@ private:
     void handleDeviceInsert(int driveNum);
     void handleDeviceRemove(int driveNum);
 
+    void setAudioFolder(QString audioFolder);
+
 private slots:
+    void on_browseButton_clicked();
+
     void onFormatStarted();
     void onFormatFinished();
 };

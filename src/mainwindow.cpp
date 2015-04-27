@@ -1,12 +1,17 @@
 #include <windows.h>
 #include <dbt.h>
 
+#include <QDir>
 #include <QFile>
+#include <QFileDialog>
 #include <QMessageBox>
-#include <QProcess>
+#include <QSettings>
 #include <QTextStream>
+#include <QThread>
 
+#include "formatworker.h"
 #include "mainwindow.h"
+
 #include "ui_mainwindow.h"
 
 MainWindow::MainWindow(QWidget *parent) :
@@ -20,14 +25,61 @@ MainWindow::MainWindow(QWidget *parent) :
     // Message for AutoRun notifications
     queryCancelAutoPlay = RegisterWindowMessage(L"QueryCancelAutoPlay");
 
+    // Initialize settings object
+    QSettings settings("FlySight", "Format");
+
+    // Get audio folder
+    QString audioFolder = settings.value("audioFolder").toString();
+
+    if (!audioFolder.isEmpty())
+    {
+        // Update audio folder
+        setAudioFolder(audioFolder);
+    }
+    else
+    {
+        // Use temporary folder
+        setAudioFolder(QDir::tempPath());
+    }
+
     // Keep this window on top
     setWindowFlags(Qt::WindowStaysOnTopHint);
 }
 
 MainWindow::~MainWindow()
 {
+    // Initialize settings object
+    QSettings settings("FlySight", "Format");
+
+    // Write INI filename
+    settings.setValue("audioFolder", ui->dstEdit->text());
+
     // Destroy UI object
     delete ui;
+}
+
+void MainWindow::setAudioFolder(
+        QString audioFolder)
+{
+    QDir audioDir(audioFolder);
+
+    // Update dialog box
+    ui->dstEdit->setText(audioFolder);
+}
+
+void MainWindow::on_browseButton_clicked()
+{
+    // Get new settings file
+    QString audioFolder = QFileDialog::getExistingDirectory(
+                this,
+                "",
+                ui->dstEdit->text());
+
+    if (!audioFolder.isEmpty())
+    {
+        // Update audio folder
+        setAudioFolder(audioFolder);
+    }
 }
 
 bool MainWindow::nativeEvent(
@@ -93,12 +145,10 @@ bool MainWindow::nativeEvent(
 void MainWindow::onFormatStarted()
 {
     // Increment thread counter
-    if (copyThreads++ == 0)
-    {
-        ui->statusBar->showMessage(tr("Formatting %1 disk%2...")
-                                   .arg(copyThreads)
-                                   .arg(copyThreads > 1 ? "s" : ""));
-    }
+    copyThreads++;
+    ui->statusBar->showMessage(tr("Formatting %1 disk%2...")
+                               .arg(copyThreads)
+                               .arg(copyThreads > 1 ? "s" : ""));
 }
 
 void MainWindow::onFormatFinished()
@@ -146,15 +196,23 @@ void MainWindow::handleDeviceInsert(
     // If the configuration file exists
     if (isConfigFile(configPath))
     {
-        // Create new process
-        QProcess *process = new QProcess;
+        // Create worker thread
+        QThread *thread = new QThread;
 
-        // Connect start/end signals
-        connect(process, SIGNAL(started()), this, SLOT(onFormatStarted()));
-        connect(process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(onFormatFinished()));
+        // Create worker thread controller
+        FormatWorker *worker = new FormatWorker(rootPath, ui->dstEdit->text());
+        worker->moveToThread(thread);
 
-        // Start formatting
-        process->start(QString("cmd /c format %1 /q /y").arg(rootPath));
+        // Connect worker thread to controller
+        connect(thread, SIGNAL(started()), this, SLOT(onFormatStarted()));
+        connect(thread, SIGNAL(started()),  worker, SLOT(process()));
+        connect(worker, SIGNAL(finished()), thread, SLOT(quit()));
+        connect(worker, SIGNAL(finished()), worker, SLOT(deleteLater()));
+        connect(thread, SIGNAL(finished()), thread, SLOT(deleteLater()));
+        connect(thread, SIGNAL(finished()), this, SLOT(onFormatFinished()));
+
+        // Start worker thread
+        thread->start();
     }
 }
 
