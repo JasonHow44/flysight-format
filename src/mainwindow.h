@@ -24,7 +24,7 @@ protected:
 private:
     Ui::MainWindow *ui;
 
-    int  copyThreads;
+    int  formatThreads, verifyThreads, failures;
     UINT queryCancelAutoPlay;
 
     bool isConfigFile(QString path);
@@ -34,11 +34,17 @@ private:
 
     void setAudioFolder(QString audioFolder);
 
+    void updateStatusBar();
+
 private slots:
     void on_browseButton_clicked();
 
     void onFormatStarted();
-    void onFormatFinished();
+    void onFormatFinished(const QString &root, const QString &audio);
+
+    void onVerifyStarted();
+    void onVerifySuccess();
+    void onVerifyFailure(const QString &root, const QString &audio);
 };
 
 #endif // MAINWINDOW_H

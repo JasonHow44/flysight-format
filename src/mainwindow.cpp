@@ -11,13 +11,16 @@
 
 #include "formatworker.h"
 #include "mainwindow.h"
+#include "verifyworker.h"
 
 #include "ui_mainwindow.h"
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow),
-    copyThreads(0)
+    formatThreads(0),
+    verifyThreads(0),
+    failures(0)
 {
     // Initialize UI object
     ui->setupUi(this);
@@ -142,28 +145,122 @@ bool MainWindow::nativeEvent(
     return false;
 }
 
-void MainWindow::onFormatStarted()
+void MainWindow::updateStatusBar()
 {
-    // Increment thread counter
-    copyThreads++;
-    ui->statusBar->showMessage(tr("Formatting %1 disk%2...")
-                               .arg(copyThreads)
-                               .arg(copyThreads > 1 ? "s" : ""));
-}
+    QString status;
 
-void MainWindow::onFormatFinished()
-{
-    // Decrement thread counter
-    if (--copyThreads == 0)
+    if (formatThreads > 0)
+    {
+        status += tr("Formatting %1 disk%2")
+                .arg(formatThreads)
+                .arg(formatThreads > 1 ? "s" : "");
+    }
+
+    if (verifyThreads > 0)
+    {
+        if (!status.isEmpty()) status += "; ";
+        status += tr("Verifying %1 disk%2")
+                .arg(verifyThreads)
+                .arg(verifyThreads > 1 ? "s" : "");
+    }
+
+    if (failures > 0)
+    {
+        if (!status.isEmpty()) status += "; ";
+        status += tr("%1 failure%2")
+                .arg(failures)
+                .arg(failures > 1 ? "s" : "");
+    }
+
+    if (status.isEmpty())
     {
         ui->statusBar->clearMessage();
     }
     else
     {
-        ui->statusBar->showMessage(tr("Formatting %1 disk%2...")
-                                   .arg(copyThreads)
-                                   .arg(copyThreads > 1 ? "s" : ""));
+        ui->statusBar->showMessage(status);
     }
+}
+
+void MainWindow::onFormatStarted()
+{
+    // Increment thread counter
+    formatThreads++;
+
+    // Update format/verify count
+    updateStatusBar();
+}
+
+void MainWindow::onFormatFinished(const QString &root, const QString &audio)
+{
+    // Decrement thread counter
+    formatThreads--;
+
+    // Create worker thread
+    QThread *thread = new QThread;
+
+    // Create worker thread controller
+    VerifyWorker *worker = new VerifyWorker(root, audio);
+    worker->moveToThread(thread);
+
+    // Connect worker thread to controller
+    connect(thread, SIGNAL(started()), this, SLOT(onVerifyStarted()));
+    connect(thread, SIGNAL(started()),  worker, SLOT(process()));
+    connect(worker, SIGNAL(success()), thread, SLOT(quit()));
+    connect(worker, SIGNAL(success()), worker, SLOT(deleteLater()));
+    connect(worker, SIGNAL(success()), this, SLOT(onVerifySuccess()));
+    connect(worker, SIGNAL(failure(const QString &, const QString &)), thread, SLOT(quit()));
+    connect(worker, SIGNAL(failure(const QString &, const QString &)), worker, SLOT(deleteLater()));
+    connect(worker, SIGNAL(failure(const QString &, const QString &)), this, SLOT(onVerifyFailure(const QString &, const QString &)));
+    connect(thread, SIGNAL(finished()), thread, SLOT(deleteLater()));
+
+    // Start worker thread
+    thread->start();
+}
+
+void MainWindow::onVerifyStarted()
+{
+    // Increment thread counter
+    verifyThreads++;
+
+    // Update format/verify count
+    updateStatusBar();
+}
+
+void MainWindow::onVerifySuccess()
+{
+    // Increment thread counter
+    verifyThreads--;
+
+    // Update format/verify count
+    updateStatusBar();
+}
+
+void MainWindow::onVerifyFailure(const QString &root, const QString &audio)
+{
+    // Increment thread counter
+    verifyThreads--;
+
+    // Increment failure count
+    failures++;
+
+    // Create worker thread
+    QThread *thread = new QThread;
+
+    // Create worker thread controller
+    FormatWorker *worker = new FormatWorker(root, audio);
+    worker->moveToThread(thread);
+
+    // Connect worker thread to controller
+    connect(thread, SIGNAL(started()), this, SLOT(onFormatStarted()));
+    connect(thread, SIGNAL(started()),  worker, SLOT(process()));
+    connect(worker, SIGNAL(finished(const QString &, const QString &)), thread, SLOT(quit()));
+    connect(worker, SIGNAL(finished(const QString &, const QString &)), worker, SLOT(deleteLater()));
+    connect(worker, SIGNAL(finished(const QString &, const QString &)), this, SLOT(onFormatFinished(const QString &, const QString &)));
+    connect(thread, SIGNAL(finished()), thread, SLOT(deleteLater()));
+
+    // Start worker thread
+    thread->start();
 }
 
 bool MainWindow::isConfigFile(QString path)
@@ -206,10 +303,10 @@ void MainWindow::handleDeviceInsert(
         // Connect worker thread to controller
         connect(thread, SIGNAL(started()), this, SLOT(onFormatStarted()));
         connect(thread, SIGNAL(started()),  worker, SLOT(process()));
-        connect(worker, SIGNAL(finished()), thread, SLOT(quit()));
-        connect(worker, SIGNAL(finished()), worker, SLOT(deleteLater()));
+        connect(worker, SIGNAL(finished(const QString &, const QString &)), thread, SLOT(quit()));
+        connect(worker, SIGNAL(finished(const QString &, const QString &)), worker, SLOT(deleteLater()));
+        connect(worker, SIGNAL(finished(const QString &, const QString &)), this, SLOT(onFormatFinished(const QString &, const QString &)));
         connect(thread, SIGNAL(finished()), thread, SLOT(deleteLater()));
-        connect(thread, SIGNAL(finished()), this, SLOT(onFormatFinished()));
 
         // Start worker thread
         thread->start();

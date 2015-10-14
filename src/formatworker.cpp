@@ -22,7 +22,7 @@ void FormatWorker::process()
 {
     // Format
     QProcess *process = new QProcess;
-    process->start(QString("cmd /c format %1 /q /y").arg(rootPath));
+    process->start(QString("cmd /c format %1 /q /y /fs:fat").arg(rootPath));
     process->waitForFinished();
 
     // Create audio folder
@@ -34,5 +34,5 @@ void FormatWorker::process()
     process->waitForFinished();
 
     // Let main thread know we're done
-    emit finished();
+    emit finished(rootPath, audioPath);
 }
