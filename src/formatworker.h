@@ -16,7 +16,7 @@ public slots:
     void process();
 
 signals:
-    void finished();
+    void finished(const QString &root, const QString &audio);
 
 private:
     QString rootPath;
