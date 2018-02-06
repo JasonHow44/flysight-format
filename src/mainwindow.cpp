@@ -191,31 +191,39 @@ void MainWindow::onFormatStarted()
     updateStatusBar();
 }
 
-void MainWindow::onFormatFinished(const QString &root, const QString &audio)
+void MainWindow::onFormatFinished(const QString &root, bool copyAudio, const QString &audio)
 {
     // Decrement thread counter
     formatThreads--;
 
-    // Create worker thread
-    QThread *thread = new QThread;
+    if (copyAudio)
+    {
+        // Create worker thread
+        QThread *thread = new QThread;
 
-    // Create worker thread controller
-    VerifyWorker *worker = new VerifyWorker(root, audio);
-    worker->moveToThread(thread);
+        // Create worker thread controller
+        VerifyWorker *worker = new VerifyWorker(root, copyAudio, audio);
+        worker->moveToThread(thread);
 
-    // Connect worker thread to controller
-    connect(thread, SIGNAL(started()), this, SLOT(onVerifyStarted()));
-    connect(thread, SIGNAL(started()),  worker, SLOT(process()));
-    connect(worker, SIGNAL(success()), thread, SLOT(quit()));
-    connect(worker, SIGNAL(success()), worker, SLOT(deleteLater()));
-    connect(worker, SIGNAL(success()), this, SLOT(onVerifySuccess()));
-    connect(worker, SIGNAL(failure(const QString &, const QString &)), thread, SLOT(quit()));
-    connect(worker, SIGNAL(failure(const QString &, const QString &)), worker, SLOT(deleteLater()));
-    connect(worker, SIGNAL(failure(const QString &, const QString &)), this, SLOT(onVerifyFailure(const QString &, const QString &)));
-    connect(thread, SIGNAL(finished()), thread, SLOT(deleteLater()));
+        // Connect worker thread to controller
+        connect(thread, SIGNAL(started()), this, SLOT(onVerifyStarted()));
+        connect(thread, SIGNAL(started()),  worker, SLOT(process()));
+        connect(worker, SIGNAL(success()), thread, SLOT(quit()));
+        connect(worker, SIGNAL(success()), worker, SLOT(deleteLater()));
+        connect(worker, SIGNAL(success()), this, SLOT(onVerifySuccess()));
+        connect(worker, SIGNAL(failure(const QString &, bool, const QString &)), thread, SLOT(quit()));
+        connect(worker, SIGNAL(failure(const QString &, bool, const QString &)), worker, SLOT(deleteLater()));
+        connect(worker, SIGNAL(failure(const QString &, bool, const QString &)), this, SLOT(onVerifyFailure(const QString &, bool, const QString &)));
+        connect(thread, SIGNAL(finished()), thread, SLOT(deleteLater()));
 
-    // Start worker thread
-    thread->start();
+        // Start worker thread
+        thread->start();
+    }
+    else
+    {
+        // Update format/verify count
+        updateStatusBar();
+    }
 }
 
 void MainWindow::onVerifyStarted()
@@ -236,7 +244,7 @@ void MainWindow::onVerifySuccess()
     updateStatusBar();
 }
 
-void MainWindow::onVerifyFailure(const QString &root, const QString &audio)
+void MainWindow::onVerifyFailure(const QString &root, bool copyAudio, const QString &audio)
 {
     // Increment thread counter
     verifyThreads--;
@@ -248,15 +256,15 @@ void MainWindow::onVerifyFailure(const QString &root, const QString &audio)
     QThread *thread = new QThread;
 
     // Create worker thread controller
-    FormatWorker *worker = new FormatWorker(root, audio);
+    FormatWorker *worker = new FormatWorker(root, copyAudio, audio);
     worker->moveToThread(thread);
 
     // Connect worker thread to controller
     connect(thread, SIGNAL(started()), this, SLOT(onFormatStarted()));
     connect(thread, SIGNAL(started()),  worker, SLOT(process()));
-    connect(worker, SIGNAL(finished(const QString &, const QString &)), thread, SLOT(quit()));
-    connect(worker, SIGNAL(finished(const QString &, const QString &)), worker, SLOT(deleteLater()));
-    connect(worker, SIGNAL(finished(const QString &, const QString &)), this, SLOT(onFormatFinished(const QString &, const QString &)));
+    connect(worker, SIGNAL(finished(const QString &, bool, const QString &)), thread, SLOT(quit()));
+    connect(worker, SIGNAL(finished(const QString &, bool, const QString &)), worker, SLOT(deleteLater()));
+    connect(worker, SIGNAL(finished(const QString &, bool, const QString &)), this, SLOT(onFormatFinished(const QString &, bool, const QString &)));
     connect(thread, SIGNAL(finished()), thread, SLOT(deleteLater()));
 
     // Start worker thread
@@ -277,7 +285,12 @@ bool MainWindow::isConfigFile(QString path)
 
     // Compare it with reference text
     QString version = "; Firmware version";
-    return line.left(version.length()) == version;
+    if (line.left(version.length()) == version) return true;
+
+    QString settings = "; GPS settings";
+    if (line.left(settings.length()) == settings) return true;
+
+    return false;
 }
 
 void MainWindow::handleDeviceInsert(
@@ -297,15 +310,15 @@ void MainWindow::handleDeviceInsert(
         QThread *thread = new QThread;
 
         // Create worker thread controller
-        FormatWorker *worker = new FormatWorker(rootPath, ui->dstEdit->text());
+        FormatWorker *worker = new FormatWorker(rootPath, ui->copyAudio->isChecked(), ui->dstEdit->text());
         worker->moveToThread(thread);
 
         // Connect worker thread to controller
         connect(thread, SIGNAL(started()), this, SLOT(onFormatStarted()));
         connect(thread, SIGNAL(started()),  worker, SLOT(process()));
-        connect(worker, SIGNAL(finished(const QString &, const QString &)), thread, SLOT(quit()));
-        connect(worker, SIGNAL(finished(const QString &, const QString &)), worker, SLOT(deleteLater()));
-        connect(worker, SIGNAL(finished(const QString &, const QString &)), this, SLOT(onFormatFinished(const QString &, const QString &)));
+        connect(worker, SIGNAL(finished(const QString &, bool, const QString &)), thread, SLOT(quit()));
+        connect(worker, SIGNAL(finished(const QString &, bool, const QString &)), worker, SLOT(deleteLater()));
+        connect(worker, SIGNAL(finished(const QString &, bool, const QString &)), this, SLOT(onFormatFinished(const QString &, bool, const QString &)));
         connect(thread, SIGNAL(finished()), thread, SLOT(deleteLater()));
 
         // Start worker thread

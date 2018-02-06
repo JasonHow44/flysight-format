@@ -9,17 +9,18 @@ class FormatWorker : public QObject
 {
     Q_OBJECT
 public:
-    FormatWorker(const QString &root, const QString &audio);
+    FormatWorker(const QString &root, bool copy, const QString &audio);
     ~FormatWorker();
 
 public slots:
     void process();
 
 signals:
-    void finished(const QString &root, const QString &audio);
+    void finished(const QString &root, bool copy, const QString &audio);
 
 private:
     QString rootPath;
+    bool copyAudio;
     QString audioPath;
 };
 

@@ -9,8 +9,10 @@
 
 VerifyWorker::VerifyWorker(
         const QString &root,
+        bool copy,
         const QString &audio):
     rootPath(root),
+    copyAudio(copy),
     audioPath(audio)
 {
     // Initialize here
@@ -27,7 +29,7 @@ void VerifyWorker::process()
     if (!QDir(QString("%1\\audio").arg(rootPath)).exists())
     {
         // Failure!
-        emit failure(rootPath, audioPath);
+        emit failure(rootPath, copyAudio, audioPath);
         return;
     }
 
@@ -43,7 +45,7 @@ void VerifyWorker::process()
         if (!checkFile.exists())
         {
             // Failure!
-            emit failure(rootPath, audioPath);
+            emit failure(rootPath, copyAudio, audioPath);
             return;
         }
     }

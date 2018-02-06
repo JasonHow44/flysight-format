@@ -9,18 +9,19 @@ class VerifyWorker : public QObject
 {
     Q_OBJECT
 public:
-    VerifyWorker(const QString &root, const QString &audio);
+    VerifyWorker(const QString &root, bool copy, const QString &audio);
     ~VerifyWorker();
 
 public slots:
     void process();
 
 signals:
-    void failure(const QString &root, const QString &audio);
+    void failure(const QString &root, bool copy, const QString &audio);
     void success();
 
 private:
     QString rootPath;
+    bool copyAudio;
     QString audioPath;
 };
 

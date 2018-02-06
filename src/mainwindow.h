@@ -40,11 +40,11 @@ private slots:
     void on_browseButton_clicked();
 
     void onFormatStarted();
-    void onFormatFinished(const QString &root, const QString &audio);
+    void onFormatFinished(const QString &root, bool copyAudio, const QString &audio);
 
     void onVerifyStarted();
     void onVerifySuccess();
-    void onVerifyFailure(const QString &root, const QString &audio);
+    void onVerifyFailure(const QString &root, bool copyAudio, const QString &audio);
 };
 
 #endif // MAINWINDOW_H
